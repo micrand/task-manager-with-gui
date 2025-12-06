@@ -49,7 +49,8 @@ KV = r'''
 
     Label:
         id: title
-        text: root.title
+        markup: True
+        text: ('[s]' + root.title + '[/s]') if root.completed else root.title
         halign: 'left'
         valign: 'middle'
         text_size: self.size
