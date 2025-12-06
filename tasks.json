@@ -3,18 +3,34 @@
     "title": "Reply Charlotte s email",
     "desc": "Need to reply charlotte email 2",
     "due": "2025-12-07",
-    "completed": true
+    "completed": true,
+    "category": "Work"
   },
   {
     "title": "Prepare tomorrow’s clothes",
     "desc": "",
     "due": "",
-    "completed": false
+    "completed": true,
+    "category": "Home"
   },
   {
-    "title": "Water plants",
+    "title": "Review team projects and progress",
+    "desc": "",
+    "due": "2025-12-07",
+    "completed": true,
+    "category": "Work"
+  },
+  {
+    "title": "Learn one new technical concept",
     "desc": "",
     "due": "",
-    "completed": false
+    "completed": true
+  },
+  {
+    "title": "Optimize or refactor old code",
+    "desc": "",
+    "due": "2025-12-15",
+    "completed": true,
+    "category": "Work"
   }
 ]

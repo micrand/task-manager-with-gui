@@ -1,9 +1,10 @@
 """
-Simple Task Manager with GUI using Kivy
+Task Manager with GUI using Kivy / Python
 Features:
 - Add, edit, delete tasks
 - Mark tasks complete/incomplete
 - Save/load tasks to JSON (tasks.json)
+- Task categories added
 - Uses RecycleView for task list
 - Single-file app (kv language embedded)
 
@@ -20,15 +21,13 @@ from kivy.properties import StringProperty, BooleanProperty, NumericProperty, Li
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
-from kivy.uix.behaviors import FocusBehavior, ButtonBehavior
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.label import Label
 from kivy.uix.checkbox import CheckBox
 from kivy.core.window import Window
 
-# Optional: set a reasonable window size for desktop
-Window.size = (640, 480)
+Window.size = (640, 500)
 
 KV = r'''
 #:import dp kivy.metrics.dp
@@ -56,6 +55,16 @@ KV = r'''
         text_size: self.size
         shorten: True
         color: (0.5,0.5,0.5,1) if root.completed else (1,1,1,1)
+
+    Label:
+        id: category
+        text: root.category
+        size_hint_x: None
+        width: dp(100)
+        halign: 'center'
+        valign: 'middle'
+        text_size: self.size
+        color: (0.7,0.7,0.7,1)
 
     Label:
         id: due
@@ -89,7 +98,7 @@ KV = r'''
         spacing: dp(8)
 
         Label:
-            text: 'Kivy Task Manager'
+            text: 'Task Manager'
             font_size: '18sp'
             halign: 'left'
             valign: 'middle'
@@ -125,11 +134,11 @@ KV = r'''
             text: 'Save Now'
             size_hint_x: None
             width: dp(120)
-            on_release: app.save_tasks()
+            on_release: app.save_tasks(); app.show_save_confirmation()
 
 <AddEditPopup>:
     title: root.window_title
-    size_hint: 0.9, 0.6
+    size_hint: 0.9, 0.7
     auto_dismiss: False
     BoxLayout:
         orientation: 'vertical'
@@ -150,6 +159,17 @@ KV = r'''
                 height: dp(40)
 
             Label:
+                text: 'Category:'
+                size_hint_y: None
+                height: dp(20)
+            TextInput:
+                id: inp_category
+                text: root.category_text
+                multiline: False
+                size_hint_y: None
+                height: dp(40)
+
+            Label:
                 text: 'Description (optional):'
                 size_hint_y: None
                 height: dp(20)
@@ -158,7 +178,7 @@ KV = r'''
                 text: root.desc_text
                 multiline: True
                 size_hint_y: None
-                height: dp(120)
+                height: dp(100)
 
             Label:
                 text: 'Due date (YYYY-MM-DD) (optional):'
@@ -180,39 +200,40 @@ KV = r'''
                 on_release: root.dismiss()
             Button:
                 text: 'Save'
-                on_release: root.on_save(inp_title.text, inp_desc.text, inp_due.text)
+                on_release: root.on_save(inp_title.text, inp_category.text, inp_desc.text, inp_due.text)
 '''
-
 
 class TaskRow(RecycleDataViewBehavior, BoxLayout):
     title = StringProperty('')
     desc = StringProperty('')
     due = StringProperty('')
+    category = StringProperty('')
     completed = BooleanProperty(False)
     index = NumericProperty(0)
 
     def refresh_view_attrs(self, rv, index, data):
         self.index = data.get('index', 0)
+        self.category = data.get('category', '')
         return super().refresh_view_attrs(rv, index, data)
 
     def on_toggle_complete(self, active):
         app = App.get_running_app()
         app.toggle_task_complete(self.index, active)
 
-
 class AddEditPopup(Popup):
     window_title = StringProperty('Add Task')
     title_text = StringProperty('')
     desc_text = StringProperty('')
     due_text = StringProperty('')
+    category_text = StringProperty('')
     edit_index = NumericProperty(-1)
 
-    def on_save(self, title, desc, due):
+    def on_save(self, title, category, desc, due):
         app = App.get_running_app()
         title = title.strip()
+        category = category.strip()
         due = due.strip()
         if not title:
-            # Simple validation
             from kivy.uix.label import Label
             from kivy.uix.boxlayout import BoxLayout
             from kivy.uix.button import Button
@@ -226,22 +247,20 @@ class AddEditPopup(Popup):
             w.open()
             return
         if self.edit_index >= 0:
-            app.save_edited_task(self.edit_index, title, desc, due)
+            app.save_edited_task(self.edit_index, title, desc, due, category)
         else:
-            app.add_task(title, desc, due)
+            app.add_task(title, desc, due, category)
         self.dismiss()
-
 
 class MainScreen(BoxLayout):
     rv_data = ListProperty([])
     status_text = StringProperty('')
 
-
 class TaskManagerApp(App):
     data_file = 'tasks.json'
 
     def build(self):
-        self.title = 'Task Manager (Kivy)'
+        self.title = 'Task Manager with GUI Kivy/Python'
         Builder.load_string(KV)
         self.root = MainScreen()
         self.tasks = []
@@ -268,16 +287,23 @@ class TaskManagerApp(App):
         except Exception as e:
             self.root.status_text = f'Error saving: {e}'
 
+    def show_save_confirmation(self):
+        from kivy.uix.popup import Popup
+        from kivy.uix.label import Label
+        p = Popup(title='Save Confirmation', size_hint=(0.6,0.3))
+        p.add_widget(Label(text='Tasks have been saved successfully.'))
+        p.open()
+
     def refresh_view(self):
         data = []
         for idx, t in enumerate(self.tasks):
-            due = t.get('due', '')
-            if due is None:
-                due = ''
+            due = t.get('due', '') or ''
+            category = t.get('category','')
             data.append({
                 'title': t.get('title', ''),
                 'desc': t.get('desc', ''),
                 'due': due,
+                'category': category,
                 'completed': t.get('completed', False),
                 'index': idx,
             })
@@ -298,17 +324,18 @@ class TaskManagerApp(App):
             p.title_text = t.get('title', '')
             p.desc_text = t.get('desc', '')
             p.due_text = t.get('due', '')
+            p.category_text = t.get('category','')
             p.edit_index = index
             p.open()
 
-    def add_task(self, title, desc, due):
-        self.tasks.append({'title': title, 'desc': desc, 'due': due, 'completed': False})
+    def add_task(self, title, desc, due, category):
+        self.tasks.append({'title': title, 'desc': desc, 'due': due, 'category': category, 'completed': False})
         self.refresh_view()
         self.save_tasks()
 
-    def save_edited_task(self, index, title, desc, due):
+    def save_edited_task(self, index, title, desc, due, category):
         if 0 <= index < len(self.tasks):
-            self.tasks[index].update({'title': title, 'desc': desc, 'due': due})
+            self.tasks[index].update({'title': title, 'desc': desc, 'due': due, 'category': category})
             self.refresh_view()
             self.save_tasks()
 
@@ -348,7 +375,6 @@ class TaskManagerApp(App):
             self.save_tasks()
 
     def on_stop(self):
-        # Save on exit
         self.save_tasks()
 
 
